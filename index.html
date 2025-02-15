@@ -20,7 +20,7 @@
     let audioCtx, source, gainNode;
     let buffer; // holds the decoded sound sample
 
-    // Load the sound file (mustang idling saved as sound.mp3)
+    // Load the sound file (mustang idling saved as Sound.mp3)
     async function loadSound(url) {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
@@ -30,7 +30,7 @@
     // Start playing the sound sample
     async function startSound() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      buffer = await loadSound('sound.mp3'); // Ensure sound.mp3 is in your project's root folder
+      buffer = await loadSound('Sound.mp3'); // Ensure Sound.mp3 is in your project's root folder
       source = audioCtx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;  // Loop the idling sound continuously
