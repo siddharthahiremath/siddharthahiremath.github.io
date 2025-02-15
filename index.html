@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mustang Idling: Manual vs Geolocation Modulation</title>
+  <title>Mustang Idling: Extreme Modulation (Double Speed Effect)</title>
   <style>
     body { font-family: sans-serif; margin: 20px; }
     #controls, #geoDisplay { margin-top: 20px; }
@@ -10,7 +10,7 @@
   </style>
 </head>
 <body>
-  <h1>Mustang Idling: Manual vs Geolocation Modulation</h1>
+  <h1>Mustang Idling: Extreme Modulation (Double Speed Effect)</h1>
   <button id="startButton">Start Engine Sound</button>
   
   <!-- Checkbox to toggle manual mode -->
@@ -76,16 +76,18 @@
       source.start();
     }
 
-    // Update sound parameters based on provided speed and acceleration
+    // Update sound parameters based on provided speed and acceleration.
+    // Note: The speed effect is doubled so that 50 m/s now sounds like 100 m/s did before.
     function updateSound(speed, acceleration) {
-      // Normalize values: speed: 0–50 m/s, acceleration: 0–10 m/s²
-      const normSpeed = Math.min(speed / 50, 1);
+      // Normalize values: speed is scaled such that (speed/50)*2 gives 2 at 50 m/s.
+      const normSpeed = Math.min((speed / 50) * 2, 2);
       const normAcc = Math.min(acceleration / 10, 1);
       
-      // Compute new playback rate and gain with more extreme mapping:
+      // Compute new playbackRate and gain with extreme mapping:
       const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
       const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
       
+      // Smoothly update parameters
       source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
       gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
     }
@@ -123,9 +125,7 @@
       if (prevGeoSpeed !== null && prevGeoTime !== null) {
         const dt = currentTime - prevGeoTime;
         if (dt > 0) {
-          geoAcc = (geoSpeed - prevGeoSpeed) / dt;
-          // Ensure acceleration is non-negative (or adjust as desired)
-          geoAcc = Math.abs(geoAcc);
+          geoAcc = Math.abs((geoSpeed - prevGeoSpeed) / dt);
         }
       }
       
@@ -176,7 +176,6 @@
       // Hide the start button; show mode toggle and geolocation display
       document.getElementById('startButton').style.display = 'none';
       document.getElementById('modeToggle').style.display = 'block';
-      // Start in geolocation mode
       document.getElementById('manualToggle').checked = false;
       manualMode = false;
       document.getElementById('manualControls').style.display = 'none';
