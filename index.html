@@ -1,80 +1,153 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Speed Tracker</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
-        }
-        #speedDisplay {
-            font-size: 24px;
-            margin: 20px 0;
-        }
-        #status {
-            color: #666;
-            margin: 10px 0;
-        }
-    </style>
+  <title>Speed Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    #speedDisplay {
+      font-size: 24px;
+      margin: 20px 0;
+    }
+    #status {
+      color: #666;
+      margin: 10px 0;
+    }
+    #startAudio {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Speed Tracker</h1>
-    <div id="speedDisplay">Current Speed: -- m/s</div>
-    <div id="status">Waiting for location access...</div>
+  <h1>Speed Tracker</h1>
+  <button id="startAudio">Start Engine Sound</button>
+  <div id="speedDisplay">Current Speed: -- m/s</div>
+  <div id="status">Waiting for location access...</div>
 
-    <script>
-        const speedDisplay = document.getElementById('speedDisplay');
-        const statusDisplay = document.getElementById('status');
+  <script>
+    // CarSound class using Web Audio API
+    class CarSound {
+      constructor() {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.oscillator = this.audioCtx.createOscillator();
+        this.gainNode = this.audioCtx.createGain();
+        this.filter = this.audioCtx.createBiquadFilter();
 
-        function startSpeedTracking() {
-            if (!navigator.geolocation) {
-                statusDisplay.textContent = 'Geolocation is not supported by your browser';
-                return;
-            }
+        // Setup oscillator (sawtooth gives a rough engine-like tone)
+        this.oscillator.type = "sawtooth";
+        this.oscillator.frequency.value = 50; // Base frequency
 
-            function success(position) {
-                const speed = position.coords.speed;
-                
-                if (speed === null) {
-                    speedDisplay.textContent = 'Speed: Not available';
-                    statusDisplay.textContent = 'Device cannot determine speed';
-                } else {
-                    const speedKmh = (speed * 3.6).toFixed(1); // Convert m/s to km/h
-                    speedDisplay.textContent = `Current Speed: ${speedKmh} km/h (${speed.toFixed(1)} m/s)`;
-                    statusDisplay.textContent = 'Tracking speed...';
-                }
-            }
+        // Setup filter for more realistic sound
+        this.filter.type = "lowpass";
+        this.filter.frequency.value = 1000;
 
-            function error(err) {
-                switch(err.code) {
-                    case err.PERMISSION_DENIED:
-                        statusDisplay.textContent = 'Location access denied. Please enable location services.';
-                        break;
-                    case err.POSITION_UNAVAILABLE:
-                        statusDisplay.textContent = 'Location information unavailable.';
-                        break;
-                    case err.TIMEOUT:
-                        statusDisplay.textContent = 'Location request timed out.';
-                        break;
-                    default:
-                        statusDisplay.textContent = 'An unknown error occurred.';
-                }
-            }
+        // Setup gain
+        this.gainNode.gain.value = 0.3;
 
-            // Use watchPosition instead of getCurrentPosition
-            navigator.geolocation.watchPosition(success, error, {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            });
+        // Connect nodes: Oscillator → Filter → Gain → Destination
+        this.oscillator.connect(this.filter);
+        this.filter.connect(this.gainNode);
+        this.gainNode.connect(this.audioCtx.destination);
+
+        // Start the oscillator
+        this.oscillator.start();
+      }
+
+      updateSpeed(speed) {
+        // Map speed (m/s) to our engine sound parameters.
+        // For display purposes we assume a max speed of about 50 m/s (~180 km/h).
+        const maxSpeed = 50;
+        const normalized = Math.min(speed / maxSpeed, 1); // Clamp between 0 and 1
+
+        // Frequency from 50 Hz (idle) to 400 Hz (high rev)
+        const frequency = 50 + normalized * 350;
+        // Gain from 0.1 (quiet) to 0.5 (louder)
+        const gain = 0.1 + normalized * 0.4;
+        // Lowpass filter cutoff from 1000 to 4000 Hz
+        const filterFreq = 1000 + normalized * 3000;
+
+        this.oscillator.frequency.setTargetAtTime(frequency, this.audioCtx.currentTime, 0.1);
+        this.gainNode.gain.setTargetAtTime(gain, this.audioCtx.currentTime, 0.1);
+        this.filter.frequency.setTargetAtTime(filterFreq, this.audioCtx.currentTime, 0.1);
+      }
+    }
+
+    // Global variable to store our CarSound instance.
+    let carSound = null;
+
+    // Unlock the AudioContext with a user gesture.
+    const startAudioButton = document.getElementById('startAudio');
+    startAudioButton.addEventListener('click', () => {
+      if (!carSound) {
+        carSound = new CarSound();
+        // Hide the button once audio is started.
+        startAudioButton.style.display = 'none';
+      }
+    });
+
+    // Geolocation speed tracking
+    const speedDisplay = document.getElementById('speedDisplay');
+    const statusDisplay = document.getElementById('status');
+
+    function startSpeedTracking() {
+      if (!navigator.geolocation) {
+        statusDisplay.textContent = 'Geolocation is not supported by your browser';
+        return;
+      }
+
+      function success(position) {
+        // position.coords.speed is in m/s (may be null if unavailable)
+        let speed = position.coords.speed;
+        if (speed === null || isNaN(speed)) {
+          speedDisplay.textContent = 'Speed: Not available';
+          statusDisplay.textContent = 'Device cannot determine speed';
+          if (carSound) {
+            carSound.updateSpeed(0);
+          }
+        } else {
+          // Convert m/s to km/h for display
+          const speedKmh = (speed * 3.6).toFixed(1);
+          speedDisplay.textContent = `Current Speed: ${speedKmh} km/h (${speed.toFixed(1)} m/s)`;
+          statusDisplay.textContent = 'Tracking speed...';
+          if (carSound) {
+            carSound.updateSpeed(speed);
+          }
         }
+      }
 
-        // Start tracking
-        startSpeedTracking();
-    </script>
+      function error(err) {
+        switch(err.code) {
+          case err.PERMISSION_DENIED:
+            statusDisplay.textContent = 'Location access denied. Please enable location services.';
+            break;
+          case err.POSITION_UNAVAILABLE:
+            statusDisplay.textContent = 'Location information unavailable.';
+            break;
+          case err.TIMEOUT:
+            statusDisplay.textContent = 'Location request timed out.';
+            break;
+          default:
+            statusDisplay.textContent = 'An unknown error occurred.';
+        }
+      }
+
+      // Start watching the position with high accuracy
+      navigator.geolocation.watchPosition(success, error, {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+    }
+
+    // Begin tracking speed as soon as the page loads.
+    startSpeedTracking();
+  </script>
 </body>
 </html>
-
-
