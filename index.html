@@ -1,26 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mustang Idling Sound Modulation</title>
+  <title>Mustang Idling: Extreme Modulation</title>
   <style>
     body { font-family: sans-serif; margin: 20px; }
     #controls { margin-top: 20px; }
+    .sliderContainer { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-  <h1>Mustang Idling Sound Modulation</h1>
+  <h1>Mustang Idling: Extreme Modulation</h1>
   <button id="startButton">Start Engine Sound</button>
+  
   <div id="controls" style="display:none;">
-    <label for="speedSlider">Speed (m/s): </label>
-    <input type="range" id="speedSlider" min="0" max="50" step="0.1" value="0">
-    <span id="speedValue">0.0</span>
+    <div class="sliderContainer">
+      <label for="speedSlider">Speed (m/s): </label>
+      <input type="range" id="speedSlider" min="0" max="50" step="0.1" value="0">
+      <span id="speedValue">0.0</span>
+    </div>
+    <div class="sliderContainer">
+      <label for="accSlider">Acceleration (m/s²): </label>
+      <input type="range" id="accSlider" min="0" max="10" step="0.1" value="0">
+      <span id="accValue">0.0</span>
+    </div>
   </div>
   
   <script>
     let audioCtx, source, gainNode;
-    let buffer; // holds the decoded sound sample
+    let buffer; // Holds the decoded sound sample
 
-    // Load the sound file (mustang idling saved as Sound.mp3)
+    // Load the sound file "Sound.mp3" (note the capital S)
     async function loadSound(url) {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
@@ -30,7 +39,7 @@
     // Start playing the sound sample
     async function startSound() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      buffer = await loadSound('Sound.mp3'); // Ensure Sound.mp3 is in your project's root folder
+      buffer = await loadSound('Sound.mp3'); // Ensure file name matches exactly
       source = audioCtx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;  // Loop the idling sound continuously
@@ -44,16 +53,18 @@
       source.start();
     }
 
-    // Update sound parameters based on speed (in m/s)
-    function updateSound(speed) {
-      // Normalize speed to a 0–1 range (assuming 50 m/s is maximum)
-      const norm = Math.min(speed / 50, 1);
-      // Increase playbackRate from 1.0 (idle) up to 1.5 as speed increases
-      const newRate = 1 + norm * 0.5;
-      // Increase gain from 0.3 up to 0.5 as speed increases
-      const newGain = 0.3 + norm * 0.2;
+    // Update sound parameters based on speed and acceleration
+    function updateSound(speed, acceleration) {
+      // Normalize speed (0 to 50 m/s) and acceleration (0 to 10 m/s²)
+      const normSpeed = Math.min(speed / 50, 1);
+      const normAcc = Math.min(acceleration / 10, 1);
       
-      // Smoothly update parameters
+      // Map these to a new playbackRate and gain.
+      // We add a squared acceleration term to make its effect more extreme.
+      const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
+      const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
+      
+      // Smoothly update parameters using setTargetAtTime
       source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
       gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
     }
@@ -65,12 +76,24 @@
       document.getElementById('controls').style.display = 'block';
     });
 
-    // Update the speed display and modulate sound when slider changes
-    document.getElementById('speedSlider').addEventListener('input', (e) => {
-      const speed = parseFloat(e.target.value);
-      document.getElementById('speedValue').textContent = speed.toFixed(1);
-      updateSound(speed);
-    });
+    // Get slider elements
+    const speedSlider = document.getElementById('speedSlider');
+    const speedValue = document.getElementById('speedValue');
+    const accSlider = document.getElementById('accSlider');
+    const accValue = document.getElementById('accValue');
+
+    // Function to update both sliders
+    function updateParameters() {
+      const speed = parseFloat(speedSlider.value);
+      const acceleration = parseFloat(accSlider.value);
+      speedValue.textContent = speed.toFixed(1);
+      accValue.textContent = acceleration.toFixed(1);
+      updateSound(speed, acceleration);
+    }
+
+    // Listen for changes on both sliders
+    speedSlider.addEventListener('input', updateParameters);
+    accSlider.addEventListener('input', updateParameters);
   </script>
 </body>
 </html>
