@@ -1,99 +1,188 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mustang Idling: Extreme Modulation</title>
+  <title>Mustang Idling: Manual vs Geolocation Modulation</title>
   <style>
     body { font-family: sans-serif; margin: 20px; }
-    #controls { margin-top: 20px; }
+    #controls, #geoDisplay { margin-top: 20px; }
     .sliderContainer { margin-bottom: 10px; }
+    label { margin-right: 10px; }
   </style>
 </head>
 <body>
-  <h1>Mustang Idling: Extreme Modulation</h1>
+  <h1>Mustang Idling: Manual vs Geolocation Modulation</h1>
   <button id="startButton">Start Engine Sound</button>
   
-  <div id="controls" style="display:none;">
+  <!-- Checkbox to toggle manual mode -->
+  <div id="modeToggle" style="display:none; margin-top:20px;">
+    <label>
+      <input type="checkbox" id="manualToggle">
+      Use Manual Control
+    </label>
+  </div>
+  
+  <!-- Manual controls -->
+  <div id="manualControls" style="display:none;">
     <div class="sliderContainer">
-      <label for="speedSlider">Speed (m/s): </label>
+      <label for="speedSlider">Speed (m/s):</label>
       <input type="range" id="speedSlider" min="0" max="50" step="0.1" value="0">
       <span id="speedValue">0.0</span>
     </div>
     <div class="sliderContainer">
-      <label for="accSlider">Acceleration (m/s²): </label>
+      <label for="accSlider">Acceleration (m/s²):</label>
       <input type="range" id="accSlider" min="0" max="10" step="0.1" value="0">
       <span id="accValue">0.0</span>
     </div>
   </div>
   
+  <!-- Geolocation display -->
+  <div id="geoDisplay" style="display:none;">
+    <strong>Geolocation Data:</strong>
+    <div>Speed: <span id="geoSpeed">0.0</span> m/s</div>
+    <div>Acceleration: <span id="geoAcc">0.0</span> m/s²</div>
+  </div>
+  
   <script>
     let audioCtx, source, gainNode;
-    let buffer; // Holds the decoded sound sample
+    let buffer; // Decoded sound sample
 
-    // Load the sound file "Sound.mp3" (note the capital S)
+    // For geolocation mode
+    let geoWatchId = null;
+    let prevGeoSpeed = null;
+    let prevGeoTime = null; // in seconds
+
+    // Flag for manual mode; default is false (use geolocation)
+    let manualMode = false;
+    
+    // Load the sound file ("Sound.mp3" with a capital S)
     async function loadSound(url) {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       return await audioCtx.decodeAudioData(arrayBuffer);
     }
 
-    // Start playing the sound sample
+    // Start playing the sound sample (looped) with basic gain control
     async function startSound() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      buffer = await loadSound('Sound.mp3'); // Ensure file name matches exactly
+      buffer = await loadSound('Sound.mp3');
       source = audioCtx.createBufferSource();
       source.buffer = buffer;
-      source.loop = true;  // Loop the idling sound continuously
+      source.loop = true;
       
-      // Create a GainNode for volume control
       gainNode = audioCtx.createGain();
       gainNode.gain.value = 0.3; // Base volume
       
-      // Connect nodes: Source → GainNode → Destination
       source.connect(gainNode).connect(audioCtx.destination);
       source.start();
     }
 
-    // Update sound parameters based on speed and acceleration
+    // Update sound parameters based on provided speed and acceleration
     function updateSound(speed, acceleration) {
-      // Normalize speed (0 to 50 m/s) and acceleration (0 to 10 m/s²)
+      // Normalize values: speed: 0–50 m/s, acceleration: 0–10 m/s²
       const normSpeed = Math.min(speed / 50, 1);
       const normAcc = Math.min(acceleration / 10, 1);
       
-      // Map these to a new playbackRate and gain.
-      // We add a squared acceleration term to make its effect more extreme.
+      // Compute new playback rate and gain with more extreme mapping:
       const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
       const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
       
-      // Smoothly update parameters using setTargetAtTime
       source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
       gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
     }
 
-    // Start the sound when the button is clicked
-    document.getElementById('startButton').addEventListener('click', async () => {
-      await startSound();
-      document.getElementById('startButton').style.display = 'none';
-      document.getElementById('controls').style.display = 'block';
-    });
-
-    // Get slider elements
-    const speedSlider = document.getElementById('speedSlider');
-    const speedValue = document.getElementById('speedValue');
-    const accSlider = document.getElementById('accSlider');
-    const accValue = document.getElementById('accValue');
-
-    // Function to update both sliders
-    function updateParameters() {
-      const speed = parseFloat(speedSlider.value);
-      const acceleration = parseFloat(accSlider.value);
-      speedValue.textContent = speed.toFixed(1);
-      accValue.textContent = acceleration.toFixed(1);
-      updateSound(speed, acceleration);
+    // Manual control update: get values from sliders and update sound
+    function updateManual() {
+      const manualSpeed = parseFloat(document.getElementById('speedSlider').value);
+      const manualAcc = parseFloat(document.getElementById('accSlider').value);
+      document.getElementById('speedValue').textContent = manualSpeed.toFixed(1);
+      document.getElementById('accValue').textContent = manualAcc.toFixed(1);
+      updateSound(manualSpeed, manualAcc);
     }
 
-    // Listen for changes on both sliders
-    speedSlider.addEventListener('input', updateParameters);
-    accSlider.addEventListener('input', updateParameters);
+    // Geolocation update: compute acceleration from successive speed readings
+    function startGeolocation() {
+      if (navigator.geolocation) {
+        geoWatchId = navigator.geolocation.watchPosition(successGeo, errorGeo, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
+        });
+      } else {
+        console.error("Geolocation is not supported by your browser.");
+      }
+    }
+
+    function successGeo(position) {
+      let geoSpeed = position.coords.speed;
+      if (geoSpeed === null || isNaN(geoSpeed)) {
+        geoSpeed = 0;
+      }
+      const currentTime = position.timestamp / 1000; // Convert ms to seconds
+      
+      let geoAcc = 0;
+      if (prevGeoSpeed !== null && prevGeoTime !== null) {
+        const dt = currentTime - prevGeoTime;
+        if (dt > 0) {
+          geoAcc = (geoSpeed - prevGeoSpeed) / dt;
+          // Ensure acceleration is non-negative (or adjust as desired)
+          geoAcc = Math.abs(geoAcc);
+        }
+      }
+      
+      // Update display
+      document.getElementById('geoSpeed').textContent = geoSpeed.toFixed(1);
+      document.getElementById('geoAcc').textContent = geoAcc.toFixed(1);
+      
+      // Update sound parameters
+      updateSound(geoSpeed, geoAcc);
+      
+      // Store for next calculation
+      prevGeoSpeed = geoSpeed;
+      prevGeoTime = currentTime;
+    }
+
+    function errorGeo(err) {
+      console.error("Geolocation error: " + err.message);
+    }
+
+    // Toggle between manual and geolocation modes
+    document.getElementById('manualToggle').addEventListener('change', (e) => {
+      manualMode = e.target.checked;
+      // Show/hide manual controls and geolocation display accordingly
+      document.getElementById('manualControls').style.display = manualMode ? 'block' : 'none';
+      document.getElementById('geoDisplay').style.display = manualMode ? 'none' : 'block';
+      
+      if (manualMode) {
+        // Stop geolocation updates if any
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+          geoWatchId = null;
+        }
+      } else {
+        // Reset previous geolocation values and start geolocation
+        prevGeoSpeed = null;
+        prevGeoTime = null;
+        startGeolocation();
+      }
+    });
+
+    // Listen for manual slider changes
+    document.getElementById('speedSlider').addEventListener('input', updateManual);
+    document.getElementById('accSlider').addEventListener('input', updateManual);
+
+    // Start sound on button click and begin in geolocation mode by default
+    document.getElementById('startButton').addEventListener('click', async () => {
+      await startSound();
+      // Hide the start button; show mode toggle and geolocation display
+      document.getElementById('startButton').style.display = 'none';
+      document.getElementById('modeToggle').style.display = 'block';
+      // Start in geolocation mode
+      document.getElementById('manualToggle').checked = false;
+      manualMode = false;
+      document.getElementById('manualControls').style.display = 'none';
+      document.getElementById('geoDisplay').style.display = 'block';
+      startGeolocation();
+    });
   </script>
 </body>
 </html>
