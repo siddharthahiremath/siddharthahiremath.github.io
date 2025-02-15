@@ -1,205 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Speed Tracker</title>
+  <title>Mustang Idling Sound Modulation</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-    }
-    #speedDisplay, #detectedSpeed {
-      font-size: 20px;
-      margin: 20px 0;
-    }
-    #status {
-      color: #666;
-      margin: 10px 0;
-    }
-    #startAudio {
-      padding: 10px 20px;
-      font-size: 18px;
-      cursor: pointer;
-      margin-bottom: 20px;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    #manualControl {
-      margin: 20px 0;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-    }
-    #manualControl label {
-      font-weight: bold;
-    }
+    body { font-family: sans-serif; margin: 20px; }
+    #controls { margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h1>Speed Tracker</h1>
-  <button id="startAudio">Start Engine Sound</button>
-  <div id="detectedSpeed">Detected Speed: -- m/s</div>
-  
-  <div id="manualControl">
-    <label>
-      <input type="checkbox" id="manualToggle">
-      Enable Manual Speed Control
-    </label>
-    <br><br>
-    <input type="range" id="manualSpeed" min="0" max="50" step="0.1" value="0" disabled>
-    <span id="manualSpeedDisplay">0.0 m/s</span>
+  <h1>Mustang Idling Sound Modulation</h1>
+  <button id="startButton">Start Engine Sound</button>
+  <div id="controls" style="display:none;">
+    <label for="speedSlider">Speed (m/s): </label>
+    <input type="range" id="speedSlider" min="0" max="50" step="0.1" value="0">
+    <span id="speedValue">0.0</span>
   </div>
   
-  <div id="status">Waiting for location access...</div>
-
   <script>
-    // CarSound class using Web Audio API
-    class CarSound {
-      constructor() {
-        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        this.oscillator = this.audioCtx.createOscillator();
-        this.gainNode = this.audioCtx.createGain();
-        this.filter = this.audioCtx.createBiquadFilter();
+    let audioCtx, source, gainNode;
+    let buffer; // holds the decoded sound sample
 
-        // Setup oscillator (sawtooth gives a rough engine-like tone)
-        this.oscillator.type = "sawtooth";
-        this.oscillator.frequency.value = 50; // Base frequency
-
-        // Setup filter for more realistic sound
-        this.filter.type = "lowpass";
-        this.filter.frequency.value = 1000;
-
-        // Setup gain
-        this.gainNode.gain.value = 0.3;
-
-        // Connect nodes: Oscillator → Filter → Gain → Destination
-        this.oscillator.connect(this.filter);
-        this.filter.connect(this.gainNode);
-        this.gainNode.connect(this.audioCtx.destination);
-
-        // Start the oscillator
-        this.oscillator.start();
-      }
-
-      updateSpeed(speed) {
-        // Map speed (m/s) to our engine sound parameters.
-        // We assume a max speed of about 50 m/s (roughly 180 km/h)
-        const maxSpeed = 50;
-        const normalized = Math.min(speed / maxSpeed, 1); // Clamp between 0 and 1
-
-        // Frequency from 50 Hz (idle) to 400 Hz (high rev)
-        const frequency = 50 + normalized * 350;
-        // Gain from 0.1 (quiet) to 0.5 (louder)
-        const gain = 0.1 + normalized * 0.4;
-        // Lowpass filter cutoff from 1000 to 4000 Hz
-        const filterFreq = 1000 + normalized * 3000;
-
-        this.oscillator.frequency.setTargetAtTime(frequency, this.audioCtx.currentTime, 0.1);
-        this.gainNode.gain.setTargetAtTime(gain, this.audioCtx.currentTime, 0.1);
-        this.filter.frequency.setTargetAtTime(filterFreq, this.audioCtx.currentTime, 0.1);
-      }
+    // Load the sound file (mustang idling saved as sound.mp3)
+    async function loadSound(url) {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      return await audioCtx.decodeAudioData(arrayBuffer);
     }
 
-    let carSound = null;
-
-    // Unlock the AudioContext with a user gesture.
-    const startAudioButton = document.getElementById('startAudio');
-    startAudioButton.addEventListener('click', () => {
-      if (!carSound) {
-        carSound = new CarSound();
-        startAudioButton.style.display = 'none';
-      }
-    });
-
-    // Elements for displaying speeds and status
-    const detectedSpeedDisplay = document.getElementById('detectedSpeed');
-    const statusDisplay = document.getElementById('status');
-    const manualToggle = document.getElementById('manualToggle');
-    const manualSpeedInput = document.getElementById('manualSpeed');
-    const manualSpeedDisplay = document.getElementById('manualSpeedDisplay');
-
-    // Listen for changes on the manual override toggle.
-    manualToggle.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        manualSpeedInput.disabled = false;
-        // If already playing, update the sound with the manual speed.
-        const manualSpeed = parseFloat(manualSpeedInput.value);
-        if (carSound) {
-          carSound.updateSpeed(manualSpeed);
-        }
-      } else {
-        manualSpeedInput.disabled = true;
-        // When turning off manual mode, the detected speed will take over.
-      }
-    });
-
-    // Listen for manual speed slider changes.
-    manualSpeedInput.addEventListener('input', () => {
-      const manualSpeed = parseFloat(manualSpeedInput.value);
-      manualSpeedDisplay.textContent = manualSpeed.toFixed(1) + " m/s";
-      // Only update the engine sound if manual override is enabled.
-      if (manualToggle.checked && carSound) {
-        carSound.updateSpeed(manualSpeed);
-      }
-    });
-
-    // Geolocation speed tracking
-    function startSpeedTracking() {
-      if (!navigator.geolocation) {
-        statusDisplay.textContent = 'Geolocation is not supported by your browser';
-        return;
-      }
-
-      function success(position) {
-        // position.coords.speed is in m/s (may be null if unavailable)
-        let speed = position.coords.speed;
-        if (speed === null || isNaN(speed)) {
-          detectedSpeedDisplay.textContent = 'Detected Speed: Not available';
-          statusDisplay.textContent = 'Device cannot determine speed';
-          if (!manualToggle.checked && carSound) {
-            carSound.updateSpeed(0);
-          }
-        } else {
-          const speedKmh = (speed * 3.6).toFixed(1); // Convert m/s to km/h
-          detectedSpeedDisplay.textContent = `Detected Speed: ${speed.toFixed(1)} m/s (${speedKmh} km/h)`;
-          statusDisplay.textContent = 'Tracking speed...';
-          // Update the engine sound only if manual override is not active.
-          if (!manualToggle.checked && carSound) {
-            carSound.updateSpeed(speed);
-          }
-        }
-      }
-
-      function error(err) {
-        switch(err.code) {
-          case err.PERMISSION_DENIED:
-            statusDisplay.textContent = 'Location access denied. Please enable location services.';
-            break;
-          case err.POSITION_UNAVAILABLE:
-            statusDisplay.textContent = 'Location information unavailable.';
-            break;
-          case err.TIMEOUT:
-            statusDisplay.textContent = 'Location request timed out.';
-            break;
-          default:
-            statusDisplay.textContent = 'An unknown error occurred.';
-        }
-      }
-
-      navigator.geolocation.watchPosition(success, error, {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-      });
+    // Start playing the sound sample
+    async function startSound() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      buffer = await loadSound('sound.mp3'); // Ensure sound.mp3 is in your project's root folder
+      source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;  // Loop the idling sound continuously
+      
+      // Create a GainNode for volume control
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.3; // Base volume
+      
+      // Connect nodes: Source → GainNode → Destination
+      source.connect(gainNode).connect(audioCtx.destination);
+      source.start();
     }
 
-    // Begin tracking speed as soon as the page loads.
-    startSpeedTracking();
+    // Update sound parameters based on speed (in m/s)
+    function updateSound(speed) {
+      // Normalize speed to a 0–1 range (assuming 50 m/s is maximum)
+      const norm = Math.min(speed / 50, 1);
+      // Increase playbackRate from 1.0 (idle) up to 1.5 as speed increases
+      const newRate = 1 + norm * 0.5;
+      // Increase gain from 0.3 up to 0.5 as speed increases
+      const newGain = 0.3 + norm * 0.2;
+      
+      // Smoothly update parameters
+      source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
+      gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
+    }
+
+    // Start the sound when the button is clicked
+    document.getElementById('startButton').addEventListener('click', async () => {
+      await startSound();
+      document.getElementById('startButton').style.display = 'none';
+      document.getElementById('controls').style.display = 'block';
+    });
+
+    // Update the speed display and modulate sound when slider changes
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+      const speed = parseFloat(e.target.value);
+      document.getElementById('speedValue').textContent = speed.toFixed(1);
+      updateSound(speed);
+    });
   </script>
 </body>
 </html>
