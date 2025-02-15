@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speed Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #speedDisplay {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        #status {
+            color: #666;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Speed Tracker</h1>
+    <div id="speedDisplay">Current Speed: -- m/s</div>
+    <div id="status">Waiting for location access...</div>
+
+    <script>
+        const speedDisplay = document.getElementById('speedDisplay');
+        const statusDisplay = document.getElementById('status');
+
+        function startSpeedTracking() {
+            if (!navigator.geolocation) {
+                statusDisplay.textContent = 'Geolocation is not supported by your browser';
+                return;
+            }
+
+            function success(position) {
+                const speed = position.coords.speed;
+                
+                if (speed === null) {
+                    speedDisplay.textContent = 'Speed: Not available';
+                    statusDisplay.textContent = 'Device cannot determine speed';
+                } else {
+                    const speedKmh = (speed * 3.6).toFixed(1); // Convert m/s to km/h
+                    speedDisplay.textContent = `Current Speed: ${speedKmh} km/h (${speed.toFixed(1)} m/s)`;
+                    statusDisplay.textContent = 'Tracking speed...';
+                }
+            }
+
+            function error(err) {
+                switch(err.code) {
+                    case err.PERMISSION_DENIED:
+                        statusDisplay.textContent = 'Location access denied. Please enable location services.';
+                        break;
+                    case err.POSITION_UNAVAILABLE:
+                        statusDisplay.textContent = 'Location information unavailable.';
+                        break;
+                    case err.TIMEOUT:
+                        statusDisplay.textContent = 'Location request timed out.';
+                        break;
+                    default:
+                        statusDisplay.textContent = 'An unknown error occurred.';
+                }
+            }
+
+            // Use watchPosition instead of getCurrentPosition
+            navigator.geolocation.watchPosition(success, error, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        }
+
+        // Start tracking
+        startSpeedTracking();
+    </script>
+</body>
+</html>
+
+
