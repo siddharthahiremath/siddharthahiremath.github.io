@@ -49,8 +49,8 @@
     let autoSpeed = 0;
     let lastMotionTime = null;
     let autoAcc = 0;
-    let sensorActive = false; // whether we are listening to devicemotion events
-    let motionHandler = null; // to store the reference to our handler
+    let sensorActive = false;
+    let motionHandler = null;
 
     // Flag for manual mode; default is false (use sensor)
     let manualMode = false;
@@ -62,7 +62,7 @@
       return await audioCtx.decodeAudioData(arrayBuffer);
     }
 
-    // Start playing the sound sample (looped) with a GainNode for volume control
+    // Start playing the sound sample (looped)
     async function startSound() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       buffer = await loadSound('Sound.mp3');
@@ -71,17 +71,15 @@
       source.loop = true;
       
       gainNode = audioCtx.createGain();
-      gainNode.gain.value = 0.3; // Base volume
+      gainNode.gain.value = 0.3;
       
       source.connect(gainNode).connect(audioCtx.destination);
       source.start();
     }
 
     // Update sound parameters based on speed and acceleration.
-    // (Speed effect is doubled: 50 m/s now sounds like 100 m/s did before.)
+    // Speed effect is doubled: 50 m/s now sounds like what 100 m/s did before.
     function updateSound(speed, acceleration) {
-      // Normalize: speed scaled so that (speed/50)*2 gives 2 at 50 m/s;
-      // acceleration normalized 0–1 (assuming 10 m/s² maximum)
       const normSpeed = Math.min((speed / 50) * 2, 2);
       const normAcc = Math.min(acceleration / 10, 1);
       
@@ -93,86 +91,4 @@
     }
 
     // Manual update: use slider values
-    function updateManual() {
-      const manualSpeed = parseFloat(document.getElementById('speedSlider').value);
-      const manualAcc = parseFloat(document.getElementById('accSlider').value);
-      document.getElementById('speedValue').textContent = manualSpeed.toFixed(1);
-      document.getElementById('accValue').textContent = manualAcc.toFixed(1);
-      updateSound(manualSpeed, manualAcc);
-    }
-
-    // Start sensor (accelerometer) mode using devicemotion events.
-    function startSensor() {
-      if (sensorActive) return; // already active
-      
-      motionHandler = function(event) {
-        // Use event.acceleration if available; otherwise, fallback to accelerationIncludingGravity
-        let acc = event.acceleration;
-        if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
-          acc = event.accelerationIncludingGravity;
-        }
-        if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
-          // Compute the magnitude of the acceleration vector
-          autoAcc = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
-          const currentTime = event.timeStamp / 1000; // seconds
-          if (lastMotionTime !== null) {
-            const dt = currentTime - lastMotionTime;
-            // Simple integration: update autoSpeed (with a damping factor to simulate friction)
-            autoSpeed = autoSpeed * 0.95 + autoAcc * dt;
-          }
-          lastMotionTime = currentTime;
-          // Update UI for sensor data
-          document.getElementById('sensorSpeed').textContent = autoSpeed.toFixed(1);
-          document.getElementById('sensorAcc').textContent = autoAcc.toFixed(1);
-          // Update sound modulation using sensor values
-          updateSound(autoSpeed, autoAcc);
-        }
-      };
-      window.addEventListener('devicemotion', motionHandler, false);
-      sensorActive = true;
-    }
-
-    // Stop sensor mode by removing the event listener
-    function stopSensor() {
-      if (sensorActive && motionHandler) {
-        window.removeEventListener('devicemotion', motionHandler, false);
-        sensorActive = false;
-        motionHandler = null;
-      }
-    }
-
-    // Toggle between manual mode and sensor mode
-    document.getElementById('manualToggle').addEventListener('change', (e) => {
-      manualMode = e.target.checked;
-      document.getElementById('manualControls').style.display = manualMode ? 'block' : 'none';
-      document.getElementById('sensorDisplay').style.display = manualMode ? 'none' : 'block';
-      
-      if (manualMode) {
-        stopSensor();
-      } else {
-        // Reset auto variables and start sensor mode
-        autoSpeed = 0;
-        lastMotionTime = null;
-        startSensor();
-      }
-    });
-
-    // Listen for manual slider changes
-    document.getElementById('speedSlider').addEventListener('input', updateManual);
-    document.getElementById('accSlider').addEventListener('input', updateManual);
-
-    // Start sound when the start button is clicked and default to sensor mode
-    document.getElementById('startButton').addEventListener('click', async () => {
-      await startSound();
-      document.getElementById('startButton').style.display = 'none';
-      document.getElementById('modeToggle').style.display = 'block';
-      // Default: sensor mode (manual toggle unchecked)
-      document.getElementById('manualToggle').checked = false;
-      manualMode = false;
-      document.getElementById('manualControls').style.display = 'none';
-      document.getElementById('sensorDisplay').style.display = 'block';
-      startSensor();
-    });
-  </script>
-</body>
-</html>
+    function upda
