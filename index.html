@@ -57,110 +57,159 @@
   </div>
   
   <script>
-    let audioCtx, source, gainNode, buffer;
-    
-    // For sensor mode:
-    let autoSpeed = 0;
-    let lastMotionTime = null;
-    let autoAcc = 0;
-    let sensorActive = false;
-    let motionHandler = null;
-    
-    // Mode flag (manual vs sensor)
-    let manualMode = false;
-    
-    // Load the sound file ("Sound.mp3" with a capital S)
-    async function loadSound(url) {
-      console.log("Loading sound from:", url);
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      return await audioCtx.decodeAudioData(arrayBuffer);
-    }
-    
-    // Start playing the sound sample (looped)
-    async function startSound() {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      buffer = await loadSound('Sound.mp3');
-      source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
+    document.addEventListener('DOMContentLoaded', () => {
+      let audioCtx, source, gainNode, buffer;
       
-      gainNode = audioCtx.createGain();
-      gainNode.gain.value = 0.3;
+      // For sensor mode:
+      let autoSpeed = 0;
+      let lastMotionTime = null;
+      let autoAcc = 0;
+      let sensorActive = false;
+      let motionHandler = null;
       
-      source.connect(gainNode).connect(audioCtx.destination);
-      source.start();
-      console.log("Sound started");
-    }
-    
-    // Update sound parameters based on speed and acceleration.
-    function updateSound(speed, acceleration) {
-      const normSpeed = Math.min((speed / 50) * 2, 2);
-      const normAcc = Math.min(acceleration / 10, 1);
+      // Mode flag (manual vs sensor)
+      let manualMode = false;
       
-      // Get sensitivity factors (for sensor mode)
-      const speedSens = parseFloat(document.getElementById('speedSensitivity').value);
-      const accSens = parseFloat(document.getElementById('accSensitivity').value);
+      async function loadSound(url) {
+        console.log("Loading sound from:", url);
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        return await audioCtx.decodeAudioData(arrayBuffer);
+      }
       
-      // Update sensitivity displays
-      document.getElementById('speedSensValue').textContent = speedSens.toFixed(1) + "x";
-      document.getElementById('accSensValue').textContent = accSens.toFixed(1) + "x";
+      async function startSound() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        buffer = await loadSound('Sound.mp3');
+        source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0.3;
+        
+        source.connect(gainNode).connect(audioCtx.destination);
+        source.start();
+        console.log("Sound started");
+      }
       
-      const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
-      const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
+      function updateSound(speed, acceleration) {
+        const normSpeed = Math.min((speed / 50) * 2, 2);
+        const normAcc = Math.min(acceleration / 10, 1);
+        const speedSens = parseFloat(document.getElementById('speedSensitivity').value);
+        const accSens = parseFloat(document.getElementById('accSensitivity').value);
+        document.getElementById('speedSensValue').textContent = speedSens.toFixed(1) + "x";
+        document.getElementById('accSensValue').textContent = accSens.toFixed(1) + "x";
+        const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
+        const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
+        updateSoundWithSens(newRate * speedSens, newGain * accSens);
+      }
       
-      // Apply sensitivity multipliers
-      updateSoundWithSens(newRate * speedSens, newGain * accSens);
-    }
-    
-    function updateSoundWithSens(newRate, newGain) {
-      source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
-      gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
-      console.log(`PlaybackRate: ${newRate.toFixed(2)}, Gain: ${newGain.toFixed(2)}`);
-    }
-    
-    // Manual update: read slider values
-    function updateManual() {
-      const manualSpeed = parseFloat(document.getElementById('speedSlider').value);
-      const manualAcc = parseFloat(document.getElementById('accSlider').value);
-      document.getElementById('speedValue').textContent = manualSpeed.toFixed(1);
-      document.getElementById('accValue').textContent = manualAcc.toFixed(1);
-      updateSound(manualSpeed, manualAcc);
-    }
-    
-    // Sensor mode: using devicemotion events
-    function startSensor() {
-      if (sensorActive) return;
+      function updateSoundWithSens(newRate, newGain) {
+        source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
+        gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
+        console.log(`PlaybackRate: ${newRate.toFixed(2)}, Gain: ${newGain.toFixed(2)}`);
+      }
       
-      motionHandler = function(event) {
-        console.log("DeviceMotion event:", event);
-        let acc = event.acceleration;
-        if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
-          acc = event.accelerationIncludingGravity;
-        }
-        if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
-          autoAcc = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
-          const currentTime = event.timeStamp / 1000;
-          if (lastMotionTime !== null) {
-            const dt = currentTime - lastMotionTime;
-            // Use a lighter damping so sustained acceleration builds up speed
-            autoSpeed = autoSpeed * 0.99 + autoAcc * dt;
+      function updateManual() {
+        const manualSpeed = parseFloat(document.getElementById('speedSlider').value);
+        const manualAcc = parseFloat(document.getElementById('accSlider').value);
+        document.getElementById('speedValue').textContent = manualSpeed.toFixed(1);
+        document.getElementById('accValue').textContent = manualAcc.toFixed(1);
+        updateSound(manualSpeed, manualAcc);
+      }
+      
+      function startSensor() {
+        if (sensorActive) return;
+        motionHandler = function(event) {
+          console.log("DeviceMotion event:", event);
+          let acc = event.acceleration;
+          if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
+            acc = event.accelerationIncludingGravity;
           }
-          lastMotionTime = currentTime;
-          document.getElementById('sensorSpeed').textContent = autoSpeed.toFixed(1);
-          document.getElementById('sensorAcc').textContent = autoAcc.toFixed(1);
-          updateSound(autoSpeed, autoAcc);
+          if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
+            autoAcc = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+            const currentTime = event.timeStamp / 1000;
+            if (lastMotionTime !== null) {
+              const dt = currentTime - lastMotionTime;
+              autoSpeed = autoSpeed * 0.99 + autoAcc * dt;
+            }
+            lastMotionTime = currentTime;
+            document.getElementById('sensorSpeed').textContent = autoSpeed.toFixed(1);
+            document.getElementById('sensorAcc').textContent = autoAcc.toFixed(1);
+            updateSound(autoSpeed, autoAcc);
+          }
+        };
+        window.addEventListener('devicemotion', motionHandler, false);
+        sensorActive = true;
+        console.log("Sensor mode started");
+      }
+      
+      function stopSensor() {
+        if (sensorActive && motionHandler) {
+          window.removeEventListener('devicemotion', motionHandler, false);
+          sensorActive = false;
+          motionHandler = null;
+          console.log("Sensor mode stopped");
         }
-      };
+      }
       
-      window.addEventListener('devicemotion', motionHandler, false);
-      sensorActive = true;
-      console.log("Sensor mode started");
-    }
-    
-    function stopSensor() {
-      if (sensorActive && motionHandler) {
-        window.removeEventListener('devicemotion', motionHandler, false);
-        sensorActive = false;
-        motionHandler = null;
+      async function requestMotionPermission() {
+        if (typeof DeviceMotionEvent !== 'undefined' &&
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            console.log("Requesting device motion permission");
+            const response = await DeviceMotionEvent.requestPermission();
+            if (response === 'granted') {
+              startSensor();
+            } else {
+              console.error('Permission not granted for device motion.');
+            }
+          } catch (error) {
+            console.error('Error requesting motion permission:', error);
+          }
+        } else {
+          startSensor();
+        }
+      }
       
+      document.getElementById('manualToggle').addEventListener('change', (e) => {
+        manualMode = e.target.checked;
+        document.getElementById('manualControls').style.display = manualMode ? 'block' : 'none';
+        document.getElementById('sensorDisplay').style.display = manualMode ? 'none' : 'block';
+        document.getElementById('sensitivityControls').style.display = manualMode ? 'none' : 'block';
+        if (manualMode) {
+          stopSensor();
+        } else {
+          autoSpeed = 0;
+          lastMotionTime = null;
+          requestMotionPermission();
+        }
+      });
+      
+      document.getElementById('speedSlider').addEventListener('input', updateManual);
+      document.getElementById('accSlider').addEventListener('input', updateManual);
+      
+      document.getElementById('speedSensitivity').addEventListener('input', () => {
+        document.getElementById('speedSensValue').textContent = parseFloat(document.getElementById('speedSensitivity').value).toFixed(1) + "x";
+      });
+      document.getElementById('accSensitivity').addEventListener('input', () => {
+        document.getElementById('accSensValue').textContent = parseFloat(document.getElementById('accSensitivity').value).toFixed(1) + "x";
+      });
+      
+      document.getElementById('startButton').addEventListener('click', async () => {
+        alert("Start button clicked"); // Debug alert
+        console.log("Start button clicked");
+        await startSound();
+        document.getElementById('startButton').style.display = 'none';
+        document.getElementById('modeToggle').style.display = 'block';
+        document.getElementById('manualToggle').checked = false;
+        manualMode = false;
+        document.getElementById('manualControls').style.display = 'none';
+        document.getElementById('sensorDisplay').style.display = 'block';
+        document.getElementById('sensitivityControls').style.display = 'block';
+        requestMotionPermission();
+      });
+    });
+  </script>
+</body>
+</html>
