@@ -10,7 +10,7 @@
   </style>
 </head>
 <body>
-  <h1>Mustang Idling: Control with Accelerometer & Sensitivity</h1>
+  <h1>Mustang Idling: Manual vs Accelerometer Control with Sensitivity</h1>
   <button id="startButton">Start Engine Sound</button>
   
   <!-- Mode Toggle -->
@@ -42,7 +42,7 @@
     <div>Acceleration: <span id="sensorAcc">0.0</span> m/s²</div>
   </div>
   
-  <!-- Sensitivity Controls (only in sensor mode) -->
+  <!-- Sensitivity Controls (for sensor mode) -->
   <div id="sensitivityControls" style="display:none;">
     <div class="sliderContainer">
       <label for="speedSensitivity">Speed Sensitivity:</label>
@@ -69,7 +69,7 @@
     // Mode flag (manual vs sensor)
     let manualMode = false;
     
-    // Load "Sound.mp3" (with a capital S)
+    // Load the sound file ("Sound.mp3" with a capital S)
     async function loadSound(url) {
       console.log("Loading sound from:", url);
       const response = await fetch(url);
@@ -77,7 +77,7 @@
       return await audioCtx.decodeAudioData(arrayBuffer);
     }
     
-    // Start playing the sound sample in a loop
+    // Start playing the sound sample (looped)
     async function startSound() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       buffer = await loadSound('Sound.mp3');
@@ -93,39 +93,33 @@
       console.log("Sound started");
     }
     
-    // Update sound based on speed and acceleration.
-    // Normalization: speed from 0-50 m/s is scaled (doubled effect),
-    // acceleration from 0-10 m/s² remains, then sensitivity multipliers are applied.
+    // Update sound parameters based on speed and acceleration.
     function updateSound(speed, acceleration) {
-      const normSpeed = Math.min((speed / 50) * 2, 2); // double effect
+      const normSpeed = Math.min((speed / 50) * 2, 2);
       const normAcc = Math.min(acceleration / 10, 1);
       
-      // Get sensitivity factors from sliders (default 1)
-      const speedSens = manualMode ? 1 : parseFloat(document.getElementById('speedSensitivity').value);
-      const accSens = manualMode ? 1 : parseFloat(document.getElementById('accSensitivity').value);
+      // Get sensitivity factors (for sensor mode)
+      const speedSens = parseFloat(document.getElementById('speedSensitivity').value);
+      const accSens = parseFloat(document.getElementById('accSensitivity').value);
       
-      // Update sensitivity displays if in sensor mode
-      if (!manualMode) {
-        document.getElementById('speedSensValue').textContent = speedSens.toFixed(1) + "x";
-        document.getElementById('accSensValue').textContent = accSens.toFixed(1) + "x";
-      }
+      // Update sensitivity displays
+      document.getElementById('speedSensValue').textContent = speedSens.toFixed(1) + "x";
+      document.getElementById('accSensValue').textContent = accSens.toFixed(1) + "x";
       
-      // Compute new playbackRate and gain using a more extreme mapping:
       const newRate = 1 + normSpeed * 0.5 + Math.pow(normAcc, 2) * 1.0;
       const newGain = 0.3 + normSpeed * 0.2 + Math.pow(normAcc, 2) * 0.3;
       
-      // Apply sensitivity multipliers to the measured values:
-      updateSoundWithSens(newRate * speedSens, newGain);
+      // Apply sensitivity multipliers
+      updateSoundWithSens(newRate * speedSens, newGain * accSens);
     }
     
-    // Actually update the playbackRate and gain
     function updateSoundWithSens(newRate, newGain) {
       source.playbackRate.setTargetAtTime(newRate, audioCtx.currentTime, 0.1);
       gainNode.gain.setTargetAtTime(newGain, audioCtx.currentTime, 0.1);
       console.log(`PlaybackRate: ${newRate.toFixed(2)}, Gain: ${newGain.toFixed(2)}`);
     }
     
-    // Manual mode update using slider values
+    // Manual update: read slider values
     function updateManual() {
       const manualSpeed = parseFloat(document.getElementById('speedSlider').value);
       const manualAcc = parseFloat(document.getElementById('accSlider').value);
@@ -134,7 +128,7 @@
       updateSound(manualSpeed, manualAcc);
     }
     
-    // Sensor mode using the device's accelerometer (devicemotion)
+    // Sensor mode: using devicemotion events
     function startSensor() {
       if (sensorActive) return;
       
@@ -144,4 +138,29 @@
         if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
           acc = event.accelerationIncludingGravity;
         }
-        if (acc && acc.x
+        if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
+          autoAcc = Math.sqrt(acc.x**2 + acc.y**2 + acc.z**2);
+          const currentTime = event.timeStamp / 1000;
+          if (lastMotionTime !== null) {
+            const dt = currentTime - lastMotionTime;
+            // Use a lighter damping so sustained acceleration builds up speed
+            autoSpeed = autoSpeed * 0.99 + autoAcc * dt;
+          }
+          lastMotionTime = currentTime;
+          document.getElementById('sensorSpeed').textContent = autoSpeed.toFixed(1);
+          document.getElementById('sensorAcc').textContent = autoAcc.toFixed(1);
+          updateSound(autoSpeed, autoAcc);
+        }
+      };
+      
+      window.addEventListener('devicemotion', motionHandler, false);
+      sensorActive = true;
+      console.log("Sensor mode started");
+    }
+    
+    function stopSensor() {
+      if (sensorActive && motionHandler) {
+        window.removeEventListener('devicemotion', motionHandler, false);
+        sensorActive = false;
+        motionHandler = null;
+      
