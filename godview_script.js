@@ -1,3 +1,34 @@
+// Global map-related variables
+let map;
+let markers = [];
+
+// Globally accessible initMap function
+window.initMap = function() {
+    const initialCenter = { lat: 34.0522, lng: -118.2437 }; // Default center (e.g., Los Angeles)
+    const mapDiv = document.getElementById('god-view-content');
+    if (!mapDiv) {
+        console.error("Map container 'god-view-content' not found during initMap.");
+        // Attempt to set a temporary message if mapDiv is not found
+        document.body.innerHTML = "Error: Map container 'god-view-content' not found. Cannot initialize map. " + document.body.innerHTML;
+        return;
+    }
+    map = new google.maps.Map(mapDiv, {
+        center: initialCenter,
+        zoom: 12, // Adjust default zoom as needed
+    });
+    
+    // After map is initialized, if there's a pending need to render data,
+    // this could be a place to trigger it. However, the Firebase `on('value')`
+    // event will likely fire and handle rendering markers.
+};
+
+// Helper function to clear markers
+function clearMarkers() {
+    for (let i = 0; i < markers.length; i++) {
+        markers[i].setMap(null); // Remove marker from map
+    }
+    markers = []; // Clear the array
+}
 document.addEventListener('DOMContentLoaded', function() {
     const locationContentDiv = document.getElementById('god-view-content');
     // Prepare for a status div (will be added to index.html in next step)
@@ -11,12 +42,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentUserName = ''; // Variable to store the user's name
 
-    function updateSelfLocationStatus(message, isError = false) {
+function updateSelfLocationStatus(message, isError = false) {
+    // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
+    const selfLocationStatusDiv = document.getElementById('self-location-status');
         if (selfLocationStatusDiv) {
             selfLocationStatusDiv.innerHTML = message;
             selfLocationStatusDiv.style.color = isError ? 'red' : 'green';
         } else {
-            // Fallback if div not yet there (though it should be by the time this is called if plan followed)
+            // Fallback if div not yet there
             isError ? console.error(message) : console.log(message);
         }
     }
@@ -29,6 +62,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             currentUserName = promptedName.trim();
+        // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
+        // const selfLocationStatusDiv = document.getElementById('self-location-status'); // Redundant if already in updateSelfLocationStatus or globally
+        const userName = prompt("Please enter your name to share your location on the God View:", "");
+        if (!userName || userName.trim() === "") {
+            updateSelfLocationStatus("Name not provided. Your location will not be shared.", true);
+            return;
         }
 
         if (navigator.geolocation) {
@@ -81,63 +120,108 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSelfLocationStatus(`Could not share your location: ${message}`, true);
     }
 
-    // --- Start of existing godview_script.js logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    const locationContentDiv = document.getElementById('god-view-content');
+    const selfLocationStatusDiv = document.getElementById('self-location-status'); // Ensure it's used or defined
+
+    // (The self-location related functions are now defined globally or will be called from here)
+
     if (!locationContentDiv) {
         console.error('Error: god-view-content div not found!');
-        return; // Critical error for main functionality
+        if (selfLocationStatusDiv) selfLocationStatusDiv.innerHTML = '<p style="color: red;">Critical Error: Map display area missing.</p>';
+        return; 
     }
 
     if (typeof firebase === 'undefined' || typeof firebase.database === 'undefined') {
         console.error('Firebase SDK not loaded or Realtime Database module missing.');
         locationContentDiv.innerHTML = '<p style="color: red;">Error: Firebase connection not set up. Cannot display locations.</p>';
-        if (selfLocationStatusDiv) selfLocationStatusDiv.innerHTML = ''; // Clear any self-status if main fails
-        return; // Critical error for main functionality
+        if (selfLocationStatusDiv) selfLocationStatusDiv.innerHTML = ''; 
+        return;
     }
     const database = firebase.database();
     const locationsRef = database.ref('locations');
     const messagesRef = database.ref('messages');
 
-    // Attempt to share self location first
-    shareSelfLocation(); // Call the new function to attempt self-location sharing
+    // Attempt to share self location (existing call)
+    shareSelfLocation(); 
 
-    // Then proceed with displaying all locations
-    locationContentDiv.innerHTML = '<p>Loading all location data from Firebase...</p>';
-
+    // Firebase 'on value' listener for locations
     locationsRef.on('value', (snapshot) => {
+        clearMarkers(); // Clear existing markers
+        // const locationContentDiv = document.getElementById('god-view-content'); // Already fetched above
+
+        if (!map) { // `map` is the global variable that initMap is supposed to set.
+            console.log("Map object not ready yet. Waiting for Google Maps API callback 'initMap'.");
+            if (locationContentDiv) {
+                locationContentDiv.innerHTML = '<p>Map is loading... If this message persists, ensure the Google Maps API key in index.html is correct and the `initMap` callback is working.</p>';
+            }
+            return; // Don't try to add markers if map isn't ready
+        }
+        // If map is ready, ensure the div is clear for the map, not showing text.
+        if (locationContentDiv) locationContentDiv.innerHTML = ''; 
+
         const locationsData = snapshot.val();
-        // ... (rest of the existing locationsRef.on('value', ...) logic remains unchanged) ...
-        // Make sure this existing logic correctly clears and rebuilds the list.
-        // For example, ensure it starts with locationContentDiv.innerHTML = ''; or similar if locationsData is present.
+
         if (locationsData) {
-            let htmlContent = '<ul>';
-            Object.keys(locationsData).forEach(keyName => { // Changed userName to keyName to avoid conflict
+            Object.keys(locationsData).forEach(keyName => {
                 const person = locationsData[keyName];
-                if (!person || typeof person.name === 'undefined') {
-                    console.warn('Skipping invalid location entry for key:', keyName, person);
+                if (!person || typeof person.name === 'undefined' || person.latitude === undefined || person.longitude === undefined || person.latitude === 0 || person.longitude === 0) {
+                    console.warn('Skipping invalid or incomplete location entry for key:', keyName, person);
                     return; 
                 }
 
-                htmlContent += `<li>`;
-                htmlContent += `<strong>${person.name}</strong><br>`;
-                if (person.latitude !== undefined && person.longitude !== undefined && person.latitude !== 0 && person.longitude !== 0) {
-                    htmlContent += `Coordinates: ${person.latitude}, ${person.longitude}<br>`;
-                    htmlContent += `Accuracy: Approx. ${person.accuracy || 'N/A'} meters<br>`;
-                    htmlContent += `<a href="https://www.google.com/maps?q=${person.latitude},${person.longitude}" target="_blank">View on Map</a><br>`;
-                } else {
-                    htmlContent += `Coordinates: Not Reported or Invalid<br>`;
+                const position = { lat: person.latitude, lng: person.longitude };
+                const marker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: person.name
+                });
+
+                let infoWindowContent = `<strong>${person.name}</strong><br>`;
+                infoWindowContent += `Coordinates: ${person.latitude.toFixed(5)}, ${person.longitude.toFixed(5)}<br>`;
+                if (person.accuracy) {
+                    infoWindowContent += `Accuracy: Approx. ${person.accuracy} meters<br>`;
                 }
-                htmlContent += `Last Updated: ${person.last_updated ? new Date(person.last_updated).toLocaleString() : 'N/A'}<br>`;
-                htmlContent += `Notes: ${person.notes || 'N/A'}`;
-                htmlContent += `</li><br>`;
+                infoWindowContent += `Last Updated: ${person.last_updated ? new Date(person.last_updated).toLocaleString() : 'N/A'}<br>`;
+                infoWindowContent += `Notes: ${person.notes || 'N/A'}`;
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: infoWindowContent
+                });
+
+                marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                });
+                markers.push(marker); // Add to our tracking array
             });
-            htmlContent += '</ul>';
-            locationContentDiv.innerHTML = htmlContent;
+
+            // Optional: Adjust map bounds to fit all markers
+            if (markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                markers.forEach(marker => bounds.extend(marker.getPosition()));
+                map.fitBounds(bounds);
+                // Prevent over-zooming if only one marker or if bounds are very small
+                if (markers.length === 1 || (bounds.getNorthEast().equals(bounds.getSouthWest()))) {
+                    map.setZoom(15); // Or your preferred zoom level
+                }
+            }
+
         } else {
-            locationContentDiv.innerHTML = '<p>No location data available in Firebase. Waiting for team members to report their locations (or for you to share yours).</p>';
+            // No location data
+            if (locationContentDiv) { 
+                 // If map is initialized, show message inside map container, or clear it.
+                 // If map is not initialized, this was handled by the `if (!map)` block earlier.
+                 // Map is guaranteed to be initialized here due to the check above.
+                 locationContentDiv.innerHTML = '<p>No location data available in Firebase. Waiting for team members to report their locations.</p>';
+            }
         }
     }, (error) => {
         console.error('Firebase read error (all locations):', error);
-        locationContentDiv.innerHTML = `<p style="color: red;">Error fetching data from Firebase: ${error.message}</p>`;
+        if (locationContentDiv) {
+            locationContentDiv.innerHTML = `<p style="color: red;">Error fetching data from Firebase: ${error.message}</p>`;
+        }
+        // Also update self-location status in case of error
+        updateSelfLocationStatus(`Error fetching Firebase data: ${error.message}`, true);
     });
 
     // Messaging functionality

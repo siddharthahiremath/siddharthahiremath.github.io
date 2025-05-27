@@ -11,8 +11,11 @@ h1 {
 }
 
 #god-view-content {
+    height: 600px; /* You can adjust this height as needed */
+    width: 100%;
+    border: 1px solid #ccc; /* Optional: to see the map container boundaries */
+    margin-bottom: 10px; /* Optional: to add some space below the map */
     margin-top: 20px;
-    padding: 15px;
     background-color: #fff;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
