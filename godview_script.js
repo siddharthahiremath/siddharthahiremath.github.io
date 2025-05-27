@@ -29,6 +29,17 @@ function clearMarkers() {
     }
     markers = []; // Clear the array
 }
+=======
+document.addEventListener('DOMContentLoaded', function() {
+    const locationContentDiv = document.getElementById('god-view-content');
+    // Prepare for a status div (will be added to index.html in next step)
+    // For now, we can assume it might exist, or messages can be logged if it doesn't.
+    // A better approach is to get this element in the next step when it's created.
+    // For this subtask, we'll focus on the logic and assume a 'self-location-status' div.
+    const selfLocationStatusDiv = document.getElementById('self-location-status'); // Will be added in HTML later
+    const messagesArea = document.getElementById('messages-area');
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
 
 // Existing self-location functions (should be kept as they are)
 function updateSelfLocationStatus(message, isError = false) {
@@ -120,6 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const database = firebase.database();
     const locationsRef = database.ref('locations');
+    const messagesRef = database.ref('messages');
 
     // Attempt to share self location (existing call)
     shareSelfLocation(); 
@@ -202,4 +214,47 @@ document.addEventListener('DOMContentLoaded', function() {
         // Also update self-location status in case of error
         updateSelfLocationStatus(`Error fetching Firebase data: ${error.message}`, true);
     });
+
+    // Messaging functionality
+    if (sendButton && messageInput && messagesArea) {
+        sendButton.addEventListener('click', () => {
+            const messageText = messageInput.value.trim();
+            if (messageText === "") {
+                return;
+            }
+
+            const messageUserName = prompt("Please enter your name to send a message:", "");
+            if (!messageUserName || messageUserName.trim() === "") {
+                alert("Name not provided. Message not sent.");
+                return;
+            }
+
+            const messageObject = {
+                name: messageUserName.trim(),
+                text: messageText,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            messagesRef.push(messageObject)
+                .then(() => {
+                    messageInput.value = '';
+                })
+                .catch((error) => {
+                    console.error('Error sending message:', error);
+                    alert(`Error sending message: ${error.message}`);
+                });
+        });
+
+        messagesRef.on('child_added', (snapshot) => {
+            const message = snapshot.val();
+            if (message && message.text && message.name && message.timestamp) {
+                const messageElement = document.createElement('div');
+                messageElement.textContent = `${new Date(message.timestamp).toLocaleTimeString()} - ${message.name}: ${message.text}`;
+                messagesArea.appendChild(messageElement);
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
+        });
+    } else {
+        console.error('Messaging UI elements not found. Messaging functionality will not work.');
+    }
 });

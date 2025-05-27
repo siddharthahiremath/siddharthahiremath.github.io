@@ -42,3 +42,26 @@ button {
 button:hover {
     background-color: #0056b3;
 }
+
+#messages-area {
+    border: 1px solid #ccc;
+    height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #fff; /* Added for consistency */
+    border-radius: 4px; /* Added for consistency */
+}
+
+#message-input {
+    width: 70%; /* Takes most of the width */
+    padding: 8px;
+    margin-right: 5px;
+    border: 1px solid #ccc; /* Added for consistency */
+    border-radius: 4px; /* Added for consistency */
+}
+
+#send-button {
+    padding: 8px 15px; /* Specific padding for this button */
+    /* General button styles already cover background, color, border, radius, cursor */
+}
