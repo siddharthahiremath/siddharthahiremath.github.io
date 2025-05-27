@@ -29,7 +29,6 @@ function clearMarkers() {
     }
     markers = []; // Clear the array
 }
-=======
 document.addEventListener('DOMContentLoaded', function() {
     const locationContentDiv = document.getElementById('god-view-content');
     // Prepare for a status div (will be added to index.html in next step)
@@ -41,7 +40,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
 
-// Existing self-location functions (should be kept as they are)
+    let currentUserName = ''; // Variable to store the user's name
+
 function updateSelfLocationStatus(message, isError = false) {
     // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
     const selfLocationStatusDiv = document.getElementById('self-location-status');
@@ -55,6 +55,13 @@ function updateSelfLocationStatus(message, isError = false) {
     }
 
     function shareSelfLocation() {
+        if (!currentUserName) {
+            const promptedName = prompt("Please enter your name to share your location on the God View:", "");
+            if (!promptedName || promptedName.trim() === "") {
+                updateSelfLocationStatus("Name not provided. Your location will not be shared.", true);
+                return;
+            }
+            currentUserName = promptedName.trim();
         // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
         // const selfLocationStatusDiv = document.getElementById('self-location-status'); // Redundant if already in updateSelfLocationStatus or globally
         const userName = prompt("Please enter your name to share your location on the God View:", "");
@@ -64,9 +71,9 @@ function updateSelfLocationStatus(message, isError = false) {
         }
 
         if (navigator.geolocation) {
-            updateSelfLocationStatus(`Attempting to share your location as ${userName.trim()}...`);
+            updateSelfLocationStatus(`Attempting to share your location as ${currentUserName}...`);
             navigator.geolocation.getCurrentPosition(
-                (position) => handleSelfPosition(position, userName.trim()),
+                (position) => handleSelfPosition(position, currentUserName),
                 handleSelfError,
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
@@ -75,14 +82,15 @@ function updateSelfLocationStatus(message, isError = false) {
         }
     }
 
-    function handleSelfPosition(position, userName) {
+    // Note: The userName parameter in handleSelfPosition is now currentUserName passed from shareSelfLocation
+    function handleSelfPosition(position, userName) { 
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         const acc = position.coords.accuracy;
         const timestamp = new Date().toISOString();
 
         const locationData = {
-            name: userName,
+            name: userName, // This will be currentUserName
             latitude: lat,
             longitude: lon,
             accuracy: acc,
@@ -90,9 +98,10 @@ function updateSelfLocationStatus(message, isError = false) {
             notes: "User of God View" // Optional note
         };
 
-        firebase.database().ref('locations/' + userName).set(locationData)
+        // Use currentUserName for the Firebase path
+        firebase.database().ref('locations/' + currentUserName).set(locationData)
             .then(() => {
-                updateSelfLocationStatus(`Your location as ${userName} is now being shared.`, false);
+                updateSelfLocationStatus(`Your location as ${currentUserName} is now being shared.`, false);
             })
             .catch((error) => {
                 console.error('Firebase write error (self-location):', error);
@@ -223,14 +232,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const messageUserName = prompt("Please enter your name to send a message:", "");
-            if (!messageUserName || messageUserName.trim() === "") {
-                alert("Name not provided. Message not sent.");
-                return;
+            if (!currentUserName) {
+                const promptedName = prompt("Please enter your name to send a message:", "");
+                if (!promptedName || promptedName.trim() === "") {
+                    alert("Name not provided. Message not sent.");
+                    return;
+                }
+                currentUserName = promptedName.trim();
             }
 
             const messageObject = {
-                name: messageUserName.trim(),
+                name: currentUserName, // Use currentUserName
                 text: messageText,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
@@ -248,8 +260,10 @@ document.addEventListener('DOMContentLoaded', function() {
         messagesRef.on('child_added', (snapshot) => {
             const message = snapshot.val();
             if (message && message.text && message.name && message.timestamp) {
+                const messageDate = new Date(message.timestamp);
+                const formattedTime = messageDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
                 const messageElement = document.createElement('div');
-                messageElement.textContent = `${new Date(message.timestamp).toLocaleTimeString()} - ${message.name}: ${message.text}`;
+                messageElement.textContent = `${formattedTime} - ${message.name}: ${message.text}`;
                 messagesArea.appendChild(messageElement);
                 messagesArea.scrollTop = messagesArea.scrollHeight;
             }
