@@ -11,10 +11,18 @@
     <p>Click the button below to get your current location. You will be asked for permission to access your location.</p>
     <button id="getLocationBtn">Get & Display My Location</button>
     <div id="location-display">
-        <p>Your location will be displayed here. Please copy this information and send it to your team coordinator.</p>
-        <p>Example of how to report: "Name: [Your Name], Location: [Latitude, Longitude], Time: [Current Time]"</p>
+        <p>After you enter your name and click the button, your location will be fetched and displayed here. It will also be automatically sent to the God View map.</p>
+        <p>Please ensure you grant permission when prompted by your browser.</p>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+
+    <!-- Your existing script -->
     <script src="report_script.js"></script>
 </body>
 </html>
