@@ -1,7 +1,4 @@
-// Global map-related variables have been removed.
-
 document.addEventListener('DOMContentLoaded', function() {
-    // The main container for location entries is now location-list-content
     const locationListDiv = document.getElementById('location-list-content'); 
     const selfLocationStatusDiv = document.getElementById('self-location-status');
     const messagesArea = document.getElementById('messages-area');
@@ -11,13 +8,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentUserName = ''; // Variable to store the user's name
 
     function updateSelfLocationStatus(message, isError = false) {
-    // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
-    const selfLocationStatusDiv = document.getElementById('self-location-status');
+        const selfLocationStatusDiv = document.getElementById('self-location-status');
         if (selfLocationStatusDiv) {
             selfLocationStatusDiv.innerHTML = message;
             selfLocationStatusDiv.style.color = isError ? 'red' : 'green';
         } else {
-            // Fallback if div not yet there
             isError ? console.error(message) : console.log(message);
         }
     }
@@ -31,7 +26,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             currentUserName = promptedName.trim();
         }
-        // Redundant prompt for userName has been removed. currentUserName is used.
 
         if (navigator.geolocation) {
             updateSelfLocationStatus(`Attempting to share your location as ${currentUserName}...`);
@@ -45,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Note: The userName parameter in handleSelfPosition is now currentUserName passed from shareSelfLocation
     function handleSelfPosition(position, userName) { 
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
@@ -53,15 +46,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const timestamp = new Date().toISOString();
 
         const locationData = {
-            name: userName, // This will be currentUserName
+            name: userName,
             latitude: lat,
             longitude: lon,
             accuracy: acc,
             last_updated: timestamp,
-            notes: "User of God View" // Optional note
+            notes: "User of God View"
         };
 
-        // Use currentUserName for the Firebase path
         firebase.database().ref('locations/' + currentUserName).set(locationData)
             .then(() => {
                 updateSelfLocationStatus(`Your location as ${currentUserName} is now being shared.`, false);
@@ -83,15 +75,10 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSelfLocationStatus(`Could not share your location: ${message}`, true);
     }
 
-    // Nested DOMContentLoaded listener removed. Code below is now part of the outer listener.
-
-    // Ensure locationListDiv is available (it's fetched at the top of the outer listener)
     if (!locationListDiv) {
-        console.error('Error: location-list-content div not found! This might indicate an issue with HTML or script loading order.');
-        // Attempt to update selfLocationStatusDiv if available
-        const selfLocationStatusDivCheck = document.getElementById('self-location-status');
-        if (selfLocationStatusDivCheck) {
-             selfLocationStatusDivCheck.innerHTML = '<p style="color: red;">Critical Error: Location list display area missing.</p>';
+        console.error('Error: location-list-content div not found!');
+        if (selfLocationStatusDiv) {
+            selfLocationStatusDiv.innerHTML = '<p style="color: red;">Critical Error: Location list display area missing.</p>';
         }
         return; 
     }
@@ -99,40 +86,37 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof firebase === 'undefined' || typeof firebase.database === 'undefined') {
         console.error('Firebase SDK not loaded or Realtime Database module missing.');
         locationListDiv.innerHTML = '<p style="color: red;">Error: Firebase connection not set up. Cannot display locations.</p>';
-        if (selfLocationStatusDiv) selfLocationStatusDiv.innerHTML = ''; // Clear status if also affected
+        if (selfLocationStatusDiv) selfLocationStatusDiv.innerHTML = ''; 
         return;
     }
+
     const database = firebase.database();
     const locationsRef = database.ref('locations');
     const messagesRef = database.ref('messages');
 
-    // Attempt to share self location (existing call)
     shareSelfLocation(); 
 
-    // Firebase 'on value' listener for locations
     locationsRef.on('value', (snapshot) => {
-        // Get the div where locations will be listed. This is re-fetched here to ensure it's available.
         const locationListDiv = document.getElementById('location-list-content');
         if (!locationListDiv) {
             console.error("Critical: 'location-list-content' div not found for rendering locations.");
-            return; // Cannot proceed without the container
+            return;
         }
 
-        locationListDiv.innerHTML = ''; // Clear previous list content
+        locationListDiv.innerHTML = '';
 
         const locationsData = snapshot.val();
 
         if (locationsData) {
             Object.keys(locationsData).forEach(keyName => {
                 const person = locationsData[keyName];
-                // Validate essential data, including name, latitude, and longitude.
                 if (!person || typeof person.name === 'undefined' || person.latitude === undefined || person.longitude === undefined || person.latitude === 0 || person.longitude === 0) {
                     console.warn('Skipping invalid or incomplete location entry for key:', keyName, person);
                     return; 
                 }
 
                 const personDiv = document.createElement('div');
-                personDiv.className = 'location-entry'; // Optional: for styling
+                personDiv.className = 'location-entry';
 
                 let content = `<h3>${person.name}</h3>`;
                 content += `<p>Coordinates: ${person.latitude.toFixed(5)}, ${person.longitude.toFixed(5)}</p>`;
@@ -146,27 +130,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 locationListDiv.appendChild(personDiv);
             });
         } else {
-            // No location data
             locationListDiv.innerHTML = '<p>No location data available in Firebase. Waiting for team members to report their locations.</p>';
         }
     }, (error) => {
         console.error('Firebase read error (all locations):', error);
-        // Ensure locationListDiv is targeted for error messages too
         const locationListDiv = document.getElementById('location-list-content');
         if (locationListDiv) {
             locationListDiv.innerHTML = `<p style="color: red;">Error fetching data from Firebase: ${error.message}</p>`;
         }
-        // Also update self-location status in case of error
         updateSelfLocationStatus(`Error fetching Firebase data: ${error.message}`, true);
     });
 
-    // Messaging functionality
     if (sendButton && messageInput && messagesArea) {
         sendButton.addEventListener('click', () => {
             const messageText = messageInput.value.trim();
-            if (messageText === "") {
-                return;
-            }
+            if (messageText === "") return;
 
             if (!currentUserName) {
                 const promptedName = prompt("Please enter your name to send a message:", "");
@@ -178,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const messageObject = {
-                name: currentUserName, // Use currentUserName
+                name: currentUserName,
                 text: messageText,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
@@ -207,4 +185,4 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error('Messaging UI elements not found. Messaging functionality will not work.');
     }
-}); // This closes the main document.addEventListener('DOMContentLoaded', function() { ... });
+});
