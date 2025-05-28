@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function updateSelfLocationStatus(message, isError = false) {
     // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
-    const selfLocationStatusDiv = document.getElementById('self-location-status');
+    // const selfLocationStatusDiv = document.getElementById('self-location-status'); // Removed redundant declaration
         if (selfLocationStatusDiv) {
             selfLocationStatusDiv.innerHTML = message;
             selfLocationStatusDiv.style.color = isError ? 'red' : 'green';
@@ -32,11 +32,11 @@ function updateSelfLocationStatus(message, isError = false) {
             currentUserName = promptedName.trim();
         // Ensure selfLocationStatusDiv is fetched correctly, possibly inside DOMContentLoaded
         // const selfLocationStatusDiv = document.getElementById('self-location-status'); // Redundant if already in updateSelfLocationStatus or globally
-        const userName = prompt("Please enter your name to share your location on the God View:", "");
-        if (!userName || userName.trim() === "") {
-            updateSelfLocationStatus("Name not provided. Your location will not be shared.", true);
-            return;
-        }
+        // const userName = prompt("Please enter your name to share your location on the God View:", ""); // Removed redundant declaration
+        // if (!userName || userName.trim() === "") { // Associated check also removed
+        //     updateSelfLocationStatus("Name not provided. Your location will not be shared.", true);
+        //     return;
+        // }
 
         if (navigator.geolocation) {
             updateSelfLocationStatus(`Attempting to share your location as ${currentUserName}...`);
@@ -51,7 +51,7 @@ function updateSelfLocationStatus(message, isError = false) {
     }
 
     // Note: The userName parameter in handleSelfPosition is now currentUserName passed from shareSelfLocation
-    function handleSelfPosition(position, userName) { 
+    function handleSelfPosition(position, userName) {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         const acc = position.coords.accuracy;
@@ -88,10 +88,6 @@ function updateSelfLocationStatus(message, isError = false) {
         updateSelfLocationStatus(`Could not share your location: ${message}`, true);
     }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const locationContentDiv = document.getElementById('god-view-content');
-    const selfLocationStatusDiv = document.getElementById('self-location-status'); // Ensure it's used or defined
-
     // (The self-location related functions are now defined globally or will be called from here)
 
     // Adjusted to check for locationListDiv
@@ -118,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Firebase 'on value' listener for locations
     locationsRef.on('value', (snapshot) => {
         // Get the div where locations will be listed. This is re-fetched here to ensure it's available.
-        const locationListDiv = document.getElementById('location-list-content');
+        // const locationListDiv = document.getElementById('location-list-content'); // Removed duplicate declaration
         if (!locationListDiv) {
             console.error("Critical: 'location-list-content' div not found for rendering locations.");
             return; // Cannot proceed without the container
@@ -158,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, (error) => {
         console.error('Firebase read error (all locations):', error);
         // Ensure locationListDiv is targeted for error messages too
-        const locationListDiv = document.getElementById('location-list-content');
+        // const locationListDiv = document.getElementById('location-list-content'); // Removed duplicate declaration
         if (locationListDiv) {
             locationListDiv.innerHTML = `<p style="color: red;">Error fetching data from Firebase: ${error.message}</p>`;
         }
