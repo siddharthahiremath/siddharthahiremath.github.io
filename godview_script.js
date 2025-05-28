@@ -151,7 +151,8 @@ function updateSelfLocationStatus(message, isError = false) {
             // No location data
             locationListDiv.innerHTML = '<p>No location data available in Firebase. Waiting for team members to report their locations.</p>';
         }
-    }, (error) => {
+    }, // Correctly closing the snapshot callback body before the comma
+    (error) => {
         console.error('Firebase read error (all locations):', error);
         // Ensure locationListDiv is targeted for error messages too
         // const locationListDiv = document.getElementById('location-list-content'); // Removed duplicate declaration
