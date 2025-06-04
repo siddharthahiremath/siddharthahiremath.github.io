@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.stroke();
         }
     }
+    drawBaseGrid();
 
     function lonToX(lon) {
         return ((lon + 180) / 360) * canvas.width;
