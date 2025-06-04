@@ -3,13 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>God View</title>
+    <title>Team Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>God View</h1>
-    <div id="self-location-status" style="text-align: center; padding: 5px; min-height: 1.2em;"></div>
-    <canvas id="god-grid" width="600" height="400"></canvas>
+    <div id="app">
+        <div id="left-panel">
+            <h1>God View</h1>
+            <div id="self-location-status" style="text-align: center; padding: 5px; min-height: 1.2em;"></div>
+            <canvas id="god-grid" width="600" height="400"></canvas>
+        </div>
+        <div id="chat-panel">
+            <h1>Team Chat</h1>
+            <div id="messages-area"></div>
+            <div id="input-container">
+                <input type="text" id="message-input" placeholder="Type your message...">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -20,5 +32,6 @@
 
     <!-- Your existing script -->
     <script src="godview_script.js"></script>
+    <script src="chat_script.js"></script>
 </body>
 </html>
