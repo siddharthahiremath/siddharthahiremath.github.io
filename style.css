@@ -1,24 +1,25 @@
 body {
-    font-family: sans-serif;
-    margin: 20px;
-    background-color: #f4f4f4;
-    color: #333;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #202123;
+    color: #ececec;
 }
 
 h1 {
-    color: #333;
+    color: #ececec;
     text-align: center;
+    margin-bottom: 10px;
 }
 
 #god-view-content {
-    height: 600px; /* You can adjust this height as needed */
+    height: 600px;
     width: 100%;
-    border: 1px solid #ccc; /* Optional: to see the map container boundaries */
-    margin-bottom: 10px; /* Optional: to add some space below the map */
+    border: 1px solid #444;
+    margin-bottom: 10px;
     margin-top: 20px;
     background-color: #fff;
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 /* Styles for report.html - can be expanded later */
@@ -43,31 +44,68 @@ button:hover {
     background-color: #0056b3;
 }
 
+#app {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+
+#left-panel, #chat-panel {
+    flex: 1;
+}
+
+#left-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#chat-panel {
+    display: flex;
+    flex-direction: column;
+}
+
 #messages-area {
-    border: 1px solid #ccc;
-    height: 200px;
+    flex: 1;
+    border: 1px solid #444;
+    background-color: #343541;
+    color: #ececec;
     overflow-y: auto;
     padding: 10px;
-    margin-bottom: 10px;
-    background-color: #fff; /* Added for consistency */
-    border-radius: 4px; /* Added for consistency */
+    border-radius: 4px;
 }
 
 #message-input {
-    width: 70%; /* Takes most of the width */
+    flex: 1;
     padding: 8px;
     margin-right: 5px;
-    border: 1px solid #ccc; /* Added for consistency */
-    border-radius: 4px; /* Added for consistency */
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #2b2c2f;
+    color: #fff;
 }
 
 #send-button {
-    padding: 8px 15px; /* Specific padding for this button */
-    /* General button styles already cover background, color, border, radius, cursor */
+    padding: 8px 15px;
+    background-color: #10a37f;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#send-button:hover {
+    background-color: #0b8f6d;
+}
+
+#input-container {
+    display: flex;
+    margin-top: 10px;
 }
 
 #god-grid {
     display: block;
+    width: 100%;
     margin: 20px auto;
     border: 1px solid #666;
     background-color: #fff;
