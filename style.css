@@ -65,3 +65,10 @@ button:hover {
     padding: 8px 15px; /* Specific padding for this button */
     /* General button styles already cover background, color, border, radius, cursor */
 }
+
+#god-grid {
+    display: block;
+    margin: 20px auto;
+    border: 1px solid #666;
+    background-color: #fff;
+}

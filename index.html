@@ -3,18 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scioly Team Tracker - God View</title>
+    <title>God View</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Scioly Team Tracker - God View</h1>
+    <h1>God View</h1>
     <div id="self-location-status" style="text-align: center; padding: 5px; min-height: 1.2em;"></div>
-    <div id="location-list-content"></div>
-    <div id="messages-area">
-        <!-- Messages will appear here -->
-    </div>
-    <input type="text" id="message-input" placeholder="Type your message...">
-    <button id="send-button">Send</button>
+    <canvas id="god-grid" width="600" height="400"></canvas>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
