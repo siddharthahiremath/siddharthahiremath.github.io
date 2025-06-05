@@ -26,6 +26,6 @@ try {
 // import { getAnalytics } from "firebase/analytics";
 // const analytics = getAnalytics(app);
 
-// Make the database reference available if needed globally by other scripts,
-// though it's often better to get it specifically where needed.
-// const database = firebase.database();
+// Make Firebase services easily accessible in other scripts if needed
+const database = firebase.database();
+const auth = firebase.auth();
